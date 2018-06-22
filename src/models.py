@@ -1,5 +1,4 @@
 # coding=utf-8
-import random
 import math
 from collections import defaultdict
 import dynet as dy
@@ -19,7 +18,8 @@ class AnalysisScorerModel(object):
 
     @classmethod
     def _create_vocab_chars(cls, sentences):
-        char2id = defaultdict(int)
+        char2id = dict()
+        char2id["**Unknown"] = 0
         char2id["<"] = len(char2id) + 1
         char2id["/"] = len(char2id) + 1
         char2id[">"] = len(char2id) + 1
@@ -36,18 +36,25 @@ class AnalysisScorerModel(object):
 
     @classmethod
     def _create_vocab_tags(cls, sentences):
-        tag2id = defaultdict(int)
+        tag2id = dict()
+        tag2id["**Unknown"] = 0
         for sentence in sentences:
             for word in sentence:
                 for tags in word.tags:
                     for tag in tags:
                         if tag not in tag2id:
-                            tag2id[tag] += len(tag2id) + 1
+                            tag2id[tag] = len(tag2id) + 1
         return tag2id
 
     @classmethod
     def _encode(cls, tokens, vocab):
-        return [vocab[token] for token in tokens]
+        res = []
+        for token in tokens:
+            if token in vocab:
+                res.append(vocab[token])
+            else:
+                res.append(0)
+        return res
 
     @classmethod
     def _embed(cls, token, char_embedding_table):
@@ -67,35 +74,24 @@ class AnalysisScorerModel(object):
             self.dev_data_path = dev_data_path
             self.test_data_paths = test_data_paths
             self.train = data_generator(train_data_path, add_gold_labels=True)
+            logger.info("Creating or Loading Vocabulary...")
             self.char2id = self._create_vocab_chars(self.train)
+            self.train = data_generator(train_data_path, add_gold_labels=True)
             self.tag2id = self._create_vocab_tags(self.train)
-            if dev_data_path:
-                self.dev = data_generator(dev_data_path, add_gold_labels=True)
-            else:
-                self.dev = None
             self.tests = []
             for test_path in self.test_data_paths:
                 self.tests.append(data_generator(test_path, add_gold_labels=True))
-            logger.info("Creating or Loading Vocabulary...")
-
-            if not self.dev:
-                train_size = int(math.floor(0.99 * len(self.train)))
-                self.dev = self.train[train_size:]
-                self.train = self.train[:train_size]
             logger.info("Building model...")
             self.model = dy.Model()
             self.trainer = dy.AdamTrainer(self.model)
-            self.SURFACE_CHARS_LOOKUP = self.model.add_lookup_parameters(
-                (len(self.char2id) + 2, char_representation_len))
-            self.ROOT_CHARS_LOOKUP = self.model.add_lookup_parameters(
-                (len(self.char2id) + 2, char_representation_len))
+            self.CHARS_LOOKUP = self.model.add_lookup_parameters((len(self.char2id) + 2, char_representation_len))
             self.TAGS_LOOKUP = self.model.add_lookup_parameters((len(self.tag2id) + 2, char_representation_len))
             self.fwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.bwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.fwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.bwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-            # self.fwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-            # self.bwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
+            self.fwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
+            self.bwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.fwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.bwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.fwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
@@ -112,8 +108,8 @@ class AnalysisScorerModel(object):
         bwd_rnn_surface_init = self.bwdRNN_surface.initial_state()
         fwd_rnn_root_init = self.fwdRNN_root.initial_state()
         bwd_rnn_root_init = self.bwdRNN_root.initial_state()
-        # fwd_rnn_suffix_init = self.fwdRNN_suffix.initial_state()
-        # bwd_rnn_suffix_init = self.bwdRNN_suffix.initial_state()
+        fwd_rnn_suffix_init = self.fwdRNN_suffix.initial_state()
+        bwd_rnn_suffix_init = self.bwdRNN_suffix.initial_state()
         fwd_rnn_tag_init = self.fwdRNN_tag.initial_state()
         bwd_rnn_tag_init = self.bwdRNN_tag.initial_state()
         fwd_rnn_context_init = self.fwdRNN_context.initial_state()
@@ -123,7 +119,7 @@ class AnalysisScorerModel(object):
         surface_words_rep = []
         for index, word in enumerate(sentence):
             encoded_surface_word = self._encode(word.surface_word, self.char2id)
-            surface_word_char_embeddings = self._embed(encoded_surface_word, self.SURFACE_CHARS_LOOKUP)
+            surface_word_char_embeddings = self._embed(encoded_surface_word, self.CHARS_LOOKUP)
             fw_exps_surface_word = fwd_rnn_surface_init.transduce(surface_word_char_embeddings)
             bw_exps_surface_word = bwd_rnn_surface_init.transduce(reversed(surface_word_char_embeddings))
             surface_word_rep = dy.concatenate([fw_exps_surface_word[-1], bw_exps_surface_word[-1]])
@@ -134,20 +130,31 @@ class AnalysisScorerModel(object):
         # Stem and POS REPRESENTATIONS
         for index, word in enumerate(sentence):
             encoded_roots = [self._encode(root, self.char2id) for root in word.roots]
-            # encoded_suffixes = [self._encode(suffix, self.char2id) for suffix in word.suffixes]
+            encoded_suffixes = [self._encode(suffix, self.char2id) for suffix in word.suffixes]
             encoded_tags = [self._encode(tag, self.tag2id) for tag in word.tags]
-            roots_embeddings = [self._embed(root, self.ROOT_CHARS_LOOKUP) for root in encoded_roots]
-            # suffix_embeddings = [self._embed(suffix, self.ROOT_CHARS_LOOKUP) for suffix in encoded_suffixes]
+            roots_embeddings = [self._embed(root, self.CHARS_LOOKUP) for root in encoded_roots]
+            suffix_embeddings = [self._embed(suffix, self.CHARS_LOOKUP) for suffix in encoded_suffixes]
             tags_embeddings = [self._embed(tag, self.TAGS_LOOKUP) for tag in encoded_tags]
             analysis_representations = []
-            for root_embedding, tag_embedding in zip(roots_embeddings, tags_embeddings):
+            for root_embedding, suffix_embedding, tag_embedding in \
+                    zip(roots_embeddings, suffix_embeddings, tags_embeddings):
                 fw_exps_root = fwd_rnn_root_init.transduce(root_embedding)
                 bw_exps_root = bwd_rnn_root_init.transduce(reversed(root_embedding))
                 root_representation = dy.rectify(dy.concatenate([fw_exps_root[-1], bw_exps_root[-1]]))
+
                 fw_exps_tag = fwd_rnn_tag_init.transduce(tag_embedding)
                 bw_exps_tag = bwd_rnn_tag_init.transduce(reversed(tag_embedding))
                 tag_representation = dy.rectify(dy.concatenate([fw_exps_tag[-1], bw_exps_tag[-1]]))
-                analysis_representations.append(dy.rectify(dy.esum([root_representation, tag_representation])))
+
+                if len(suffix_embedding) > 0:
+                    fw_exps_suffix = fwd_rnn_suffix_init.transduce(suffix_embedding)
+                    bw_exps_suffix = bwd_rnn_suffix_init.transduce(reversed(suffix_embedding))
+                    suffix_representation = dy.rectify(dy.concatenate([fw_exps_suffix[-1], bw_exps_suffix[-1]]))
+
+                    analysis_representations.append(dy.rectify(dy.esum([root_representation,
+                                                                        suffix_representation, tag_representation])))
+                else:
+                    analysis_representations.append(dy.rectify(dy.esum([root_representation, tag_representation])))
 
             left_context_rep = fw_exps_context[index]
             right_context_rep = bw_exps_context[len(sentence) - index - 1]
@@ -204,8 +211,7 @@ class AnalysisScorerModel(object):
         for epoch in range(num_epoch):
             logger.info("Loading data...")
             self.train = data_generator(self.train_data_path, add_gold_labels=True)
-            if self.dev_data_path:
-                self.dev = data_generator(self.dev_data_path, add_gold_labels=True)
+            self.dev = data_generator(self.dev_data_path, add_gold_labels=True)
             self.tests = []
             for test_path in self.test_data_paths:
                 self.tests.append(data_generator(test_path, add_gold_labels=True))
@@ -260,20 +266,19 @@ class AnalysisScorerModel(object):
 
         self.model = dy.Model()
         self.trainer = dy.AdamTrainer(self.model)
-        self.CHARS_LOOKUP = self.model.add_lookup_parameters(
-            (len(self.char2id) + 2, char_representation_len))
+        self.CHARS_LOOKUP = self.model.add_lookup_parameters((len(self.char2id) + 2, char_representation_len))
         self.TAGS_LOOKUP = self.model.add_lookup_parameters((len(self.tag2id) + 2, char_representation_len))
         self.fwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.fwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-        # self.fwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-        # self.bwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
+        self.fwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
+        self.bwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.fwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.fwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
         self.bwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
-        self.model.load("resources/models/" + model_name + ".model")
+        self.model.populate("resources/models/" + model_name + ".model")
 
     @staticmethod
     def create_from_existed_model(model_name):

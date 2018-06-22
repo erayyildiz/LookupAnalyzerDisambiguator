@@ -100,14 +100,17 @@ class TurkishStemSuffixCandidateGenerator(object):
             if candidate_roots[i] in TurkishStemSuffixCandidateGenerator.ROOT_TRANSFORMATION_MAP:
                 candidate_roots[i] = TurkishStemSuffixCandidateGenerator.ROOT_TRANSFORMATION_MAP[candidate_roots[i]]
 
-    @staticmethod
-    def _suffix_transform(candidate_suffixes):
+    @classmethod
+    def suffix_transform(cls, candidate_suffixes):
         for i in range(len(candidate_suffixes)):
-            candidate_suffixes[i] = to_lower(candidate_suffixes[i])
-            candidate_suffixes[i] = TurkishStemSuffixCandidateGenerator.\
-                SUFFIX_TRANSFORMATION_REGEX1.sub("A", candidate_suffixes[i])
-            candidate_suffixes[i] = TurkishStemSuffixCandidateGenerator. \
-                SUFFIX_TRANSFORMATION_REGEX2.sub("H", candidate_suffixes[i])
+            candidate_suffixes[i] = cls.suffix_transform_single(candidate_suffixes[i])
+
+    @classmethod
+    def suffix_transform_single(cls, candidate_suffix):
+        candidate_suffix = to_lower(candidate_suffix)
+        candidate_suffix = cls.SUFFIX_TRANSFORMATION_REGEX1.sub("A", candidate_suffix)
+        candidate_suffix = cls.SUFFIX_TRANSFORMATION_REGEX2.sub("H", candidate_suffix)
+        return candidate_suffix
 
     @staticmethod
     def _add_candidate_stem_suffix(stem_candidate, suffix_candidate, candidate_roots, candidate_suffixes):
@@ -164,7 +167,7 @@ class TurkishStemSuffixCandidateGenerator(object):
                     candidate_suffixes.append(suffix_candidate)
                     candidate_roots.append(stem_candidate[:-1] + "u" + stem_candidate[-1])
                     candidate_suffixes.append(suffix_candidate)
-            if TurkishStemSuffixCandidateGenerator.ENDS_WITH_SOFT_CONSONANTS_REGEX.match(stem_candidate):
+            if len(stem_candidate) > 2 and TurkishStemSuffixCandidateGenerator.ENDS_WITH_SOFT_CONSONANTS_REGEX.match(stem_candidate):
                 # Softening of consonants
                 candidate_roots.append(TurkishStemSuffixCandidateGenerator._transform_soft_consonants(stem_candidate))
                 candidate_suffixes.append(suffix_candidate)
@@ -190,7 +193,7 @@ class TurkishStemSuffixCandidateGenerator(object):
             candidate_roots = [asciify(candidate_root) for candidate_root in candidate_roots]
             candidate_suffixes = [asciify(candidate_suffix) for candidate_suffix in candidate_suffixes]
         if self.suffix_normalization:
-            TurkishStemSuffixCandidateGenerator._suffix_transform(candidate_suffixes)
+            TurkishStemSuffixCandidateGenerator.suffix_transform(candidate_suffixes)
         return candidate_roots, candidate_suffixes
 
     def _get_tags(self, suffix, stem_tags=None):
@@ -240,5 +243,5 @@ class TurkishStemSuffixCandidateGenerator(object):
 
 if __name__ == "__main__":
     candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=False)
-    print(candidate_generator.get_analysis_candidates("20:00'de"))
+    print(candidate_generator.get_analysis_candidates("MahalleYE"))
 
