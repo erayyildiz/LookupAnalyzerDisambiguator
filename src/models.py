@@ -1,6 +1,4 @@
 # coding=utf-8
-import math
-from collections import defaultdict
 import dynet as dy
 import numpy as np
 import pickle

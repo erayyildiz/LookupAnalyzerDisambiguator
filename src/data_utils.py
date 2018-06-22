@@ -8,7 +8,7 @@ from utils import get_root_from_analysis, get_tags_from_analysis, WordStruct, \
     convert_tag_list_to_str, to_lower, standardize_tags
 
 
-def data_generator(file_path, add_gold_labels=True, case_sensitive=False, max_lines=10):
+def data_generator(file_path, add_gold_labels=True, case_sensitive=False, max_lines=0):
     sentence = []
     candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=case_sensitive)
     with open(file_path, "r", encoding="UTF-8") as f:
