@@ -76,6 +76,7 @@ class AnalysisScorerModel(object):
             self.char2id = self._create_vocab_chars(self.train)
             self.train = data_generator(train_data_path, add_gold_labels=True)
             self.tag2id = self._create_vocab_tags(self.train)
+            self.dev = None
             self.tests = []
             for test_path in self.test_data_paths:
                 self.tests.append(data_generator(test_path, add_gold_labels=True))
@@ -88,8 +89,6 @@ class AnalysisScorerModel(object):
             self.bwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.fwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.bwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-            self.fwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-            self.bwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.fwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.bwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.fwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
@@ -106,8 +105,6 @@ class AnalysisScorerModel(object):
         bwd_rnn_surface_init = self.bwdRNN_surface.initial_state()
         fwd_rnn_root_init = self.fwdRNN_root.initial_state()
         bwd_rnn_root_init = self.bwdRNN_root.initial_state()
-        fwd_rnn_suffix_init = self.fwdRNN_suffix.initial_state()
-        bwd_rnn_suffix_init = self.bwdRNN_suffix.initial_state()
         fwd_rnn_tag_init = self.fwdRNN_tag.initial_state()
         bwd_rnn_tag_init = self.bwdRNN_tag.initial_state()
         fwd_rnn_context_init = self.fwdRNN_context.initial_state()
@@ -128,14 +125,11 @@ class AnalysisScorerModel(object):
         # Stem and POS REPRESENTATIONS
         for index, word in enumerate(sentence):
             encoded_roots = [self._encode(root, self.char2id) for root in word.roots]
-            encoded_suffixes = [self._encode(suffix, self.char2id) for suffix in word.suffixes]
             encoded_tags = [self._encode(tag, self.tag2id) for tag in word.tags]
             roots_embeddings = [self._embed(root, self.CHARS_LOOKUP) for root in encoded_roots]
-            suffix_embeddings = [self._embed(suffix, self.CHARS_LOOKUP) for suffix in encoded_suffixes]
             tags_embeddings = [self._embed(tag, self.TAGS_LOOKUP) for tag in encoded_tags]
             analysis_representations = []
-            for root_embedding, suffix_embedding, tag_embedding in \
-                    zip(roots_embeddings, suffix_embeddings, tags_embeddings):
+            for root_embedding, tag_embedding in zip(roots_embeddings, tags_embeddings):
                 fw_exps_root = fwd_rnn_root_init.transduce(root_embedding)
                 bw_exps_root = bwd_rnn_root_init.transduce(reversed(root_embedding))
                 root_representation = dy.rectify(dy.concatenate([fw_exps_root[-1], bw_exps_root[-1]]))
@@ -144,15 +138,7 @@ class AnalysisScorerModel(object):
                 bw_exps_tag = bwd_rnn_tag_init.transduce(reversed(tag_embedding))
                 tag_representation = dy.rectify(dy.concatenate([fw_exps_tag[-1], bw_exps_tag[-1]]))
 
-                if len(suffix_embedding) > 0:
-                    fw_exps_suffix = fwd_rnn_suffix_init.transduce(suffix_embedding)
-                    bw_exps_suffix = bwd_rnn_suffix_init.transduce(reversed(suffix_embedding))
-                    suffix_representation = dy.rectify(dy.concatenate([fw_exps_suffix[-1], bw_exps_suffix[-1]]))
-
-                    analysis_representations.append(dy.rectify(dy.esum([root_representation,
-                                                                        suffix_representation, tag_representation])))
-                else:
-                    analysis_representations.append(dy.rectify(dy.esum([root_representation, tag_representation])))
+                analysis_representations.append(dy.rectify(dy.esum([root_representation, tag_representation])))
 
             left_context_rep = fw_exps_context[index]
             right_context_rep = bw_exps_context[len(sentence) - index - 1]
@@ -270,8 +256,6 @@ class AnalysisScorerModel(object):
         self.bwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.fwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-        self.fwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-        self.bwdRNN_suffix = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.fwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.fwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
