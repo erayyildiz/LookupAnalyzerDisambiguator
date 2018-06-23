@@ -3,8 +3,12 @@ import dynet as dy
 import numpy as np
 import pickle
 from datetime import datetime
+
+from candidate_generators import TurkishStemSuffixCandidateGenerator
 from data_utils import data_generator
 import logging.config
+
+from utils import to_lower, WordStruct
 
 logging.config.fileConfig('resources/logging.ini')
 logger = logging.getLogger(__file__)
@@ -58,8 +62,8 @@ class AnalysisScorerModel(object):
     def _embed(cls, token, char_embedding_table):
         return [char_embedding_table[ch] for ch in token]
 
-    def __init__(self, train_from_scratch=True, char_representation_len=100,
-                 word_lstm_rep_len=200, train_data_path="data/data.train.txt",
+    def __init__(self, train_from_scratch=True, char_representation_len=128,
+                 word_lstm_rep_len=512, train_data_path="data/data.train.txt",
                  dev_data_path="data/data.dev.txt", test_data_paths=["data/data.test.txt"],
                  model_file_name=None, case_sensitive=False):
         assert word_lstm_rep_len % 2 == 0
@@ -174,6 +178,26 @@ class AnalysisScorerModel(object):
             res.append(probs.npvalue())
         return res
 
+    def predict(self, tokens):
+        sentence = []
+        candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=False)
+        for token in tokens:
+            token = to_lower(token)
+            candidate_analyzes = candidate_generator.get_analysis_candidates(token)
+            roots = []
+            tags = []
+            for analysis in candidate_analyzes:
+                roots.append(analysis[0])
+                tags.append(analysis[2])
+            sentence.append(WordStruct(token, roots, [], tags))
+        selected_indices = self.predict_indices(sentence)
+        res = []
+        for i, j in enumerate(selected_indices):
+            selected_analysis = sentence[i].roots[j] + "+" + "+".join(sentence[i].tags[j])
+            selected_analysis = selected_analysis.replace("+DB", "^DB")
+            res.append(selected_analysis)
+        return res
+
     def calculate_acc(self, sentences):
         corrects = 0
         non_ambigious_count = 0
@@ -272,3 +296,23 @@ if __name__ == "__main__":
                         test_data_paths=["data/test.merge", "data/data.test.txt",
                                          "data/Morph.Dis.Test.Hand.Labeled-20K.txt"],
                         model_file_name="lookup_disambiguator_wo_suffix", train_from_scratch=True)
+
+    # model = AnalysisScorerModel.create_from_existed_model(model_name="lookup_disambiguator_wo_suffix")
+    # test_data = data_generator("data/test.merge", add_gold_labels=True, case_sensitive=True)
+    # corrects = 0
+    # total = 0
+    # with open("data/incorrect_analyzes.csv", "w", encoding="UTF-8") as f:
+    #     f.write("Surface\tGold\tPredicted\n")
+    #     for sentence in test_data:
+    #         predicted_indexes = model.predict_indices(sentence)
+    #         for word, selected_index in zip(sentence, predicted_indexes):
+    #             gold_analysis = word.roots[0] + "+" + "+".join(word.tags[0])
+    #             gold_analysis = gold_analysis.replace("+DB", "^DB")
+    #             selected_analysis = word.roots[selected_index] + "+" + "+".join(word.tags[selected_index])
+    #             selected_analysis = selected_analysis.replace("+DB", "^DB")
+    #             if to_lower(selected_analysis) == to_lower(gold_analysis):
+    #                 corrects += 1
+    #             else:
+    #                 f.write("{}\t{}\t{}\n".format(word.surface_word, gold_analysis, selected_analysis))
+    #             total += 1
+    #     print("Accuracy: {}".format(corrects * 1.0 / total))

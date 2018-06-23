@@ -53,7 +53,6 @@ class TurkishStemSuffixCandidateGenerator(object):
                 if suffix not in self.suffix_dic:
                     self.suffix_dic[suffix] = []
                 self.suffix_dic[suffix].append(splits[1])
-                self.stem_dic = []
 
     def read_stem_list(self):
         with open(TurkishStemSuffixCandidateGenerator.STEM_LIST_FILE_PATH, "r", encoding="UTF-8") as f:
@@ -181,9 +180,14 @@ class TurkishStemSuffixCandidateGenerator(object):
             if not self.case_sensitive:
                 candidate_root = to_lower(candidate_root)
                 candidate_suffix = to_lower(candidate_suffix)
-            self._add_candidate_stem_suffix(candidate_root, candidate_suffix, candidate_roots, candidate_suffixes)
+                self._add_candidate_stem_suffix(candidate_root, candidate_suffix, candidate_roots, candidate_suffixes)
+            else:
+                self._add_candidate_stem_suffix(candidate_root, candidate_suffix, candidate_roots, candidate_suffixes)
+                candidate_root = to_lower(candidate_root)
+                candidate_suffix = to_lower(candidate_suffix)
+                self._add_candidate_stem_suffix(candidate_root, candidate_suffix, candidate_roots, candidate_suffixes)
         if not self.case_sensitive:
-            candidate_roots.append(to_lower(surface_word))
+            candidate_roots.append(surface_word)
         else:
             candidate_roots.append(to_lower(surface_word))
         candidate_suffixes.append("")
@@ -226,7 +230,8 @@ class TurkishStemSuffixCandidateGenerator(object):
             if TurkishStemSuffixCandidateGenerator.NON_WORD_REGEX.match(candidate_root):
                 stem_tags = ["Punc", "Num", "Noun+Time"]
             elif len(candidate_suffix) == 0 and candidate_root not in self.stem_dic:
-                stem_tags = ["Noun", "Noun+Prop"]
+                # stem_tags = ["Noun", "Noun+Prop"]
+                continue
             elif candidate_root not in self.stem_dic:
                 if candidate_suffix.startswith("'"):
                     stem_tags = ["Noun+Prop", "Num"]
