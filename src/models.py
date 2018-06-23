@@ -204,10 +204,7 @@ class AnalysisScorerModel(object):
         total = 0
         for sentence in sentences:
             predicted_label_indexes = self.predict_indices(sentence)
-            predicted_labels = [word.roots[i] + "+".join(word.tags[i])
-                                for i, word in zip(predicted_label_indexes, sentence)]
-            gold_labels = [word.roots[0] + "+".join(word.tags[0]) for i, word in enumerate(sentence)]
-            corrects += [1 for l1, l2 in zip(gold_labels, predicted_labels) if l1 == l2].count(1)
+            corrects += predicted_label_indexes.count(0)
             non_ambigious_count += [1 for w in sentence if len(w.roots) == 1].count(1)
             total += len(sentence)
         return (corrects * 1.0 / total), ((corrects - non_ambigious_count) * 1.0 / (total - non_ambigious_count))
@@ -291,28 +288,32 @@ class AnalysisScorerModel(object):
         return AnalysisScorerModel(train_from_scratch=False, model_file_name=model_name)
 
 
+def calculate_acc_on_testfile(file_path):
+    model = AnalysisScorerModel.create_from_existed_model(model_name="lookup_disambiguator_wo_suffix")
+    test_data = data_generator(file_path, add_gold_labels=True, case_sensitive=True)
+    corrects = 0
+    total = 0
+    with open("data/incorrect_analyzes.csv", "w", encoding="UTF-8") as f:
+        f.write("Surface\tGold\tPredicted\n")
+        for sentence in test_data:
+            predicted_indexes = model.predict_indices(sentence)
+            for word, selected_index in zip(sentence, predicted_indexes):
+                gold_analysis = word.roots[0] + "+" + "+".join(word.tags[0])
+                gold_analysis = gold_analysis.replace("+DB", "^DB")
+                selected_analysis = word.roots[selected_index] + "+" + "+".join(word.tags[selected_index])
+                selected_analysis = selected_analysis.replace("+DB", "^DB")
+                if to_lower(selected_analysis) == to_lower(gold_analysis):
+                    corrects += 1
+                else:
+                    f.write("{}\t{}\t{}\n".format(word.surface_word, gold_analysis, selected_analysis))
+                total += 1
+        print("Accuracy: {}".format(corrects * 1.0 / total))
+
+
 if __name__ == "__main__":
     AnalysisScorerModel(train_data_path="data/data.train.txt", dev_data_path="data/data.dev.txt",
                         test_data_paths=["data/test.merge", "data/data.test.txt",
                                          "data/Morph.Dis.Test.Hand.Labeled-20K.txt"],
                         model_file_name="lookup_disambiguator_wo_suffix", train_from_scratch=True)
 
-    # model = AnalysisScorerModel.create_from_existed_model(model_name="lookup_disambiguator_wo_suffix")
-    # test_data = data_generator("data/test.merge", add_gold_labels=True, case_sensitive=True)
-    # corrects = 0
-    # total = 0
-    # with open("data/incorrect_analyzes.csv", "w", encoding="UTF-8") as f:
-    #     f.write("Surface\tGold\tPredicted\n")
-    #     for sentence in test_data:
-    #         predicted_indexes = model.predict_indices(sentence)
-    #         for word, selected_index in zip(sentence, predicted_indexes):
-    #             gold_analysis = word.roots[0] + "+" + "+".join(word.tags[0])
-    #             gold_analysis = gold_analysis.replace("+DB", "^DB")
-    #             selected_analysis = word.roots[selected_index] + "+" + "+".join(word.tags[selected_index])
-    #             selected_analysis = selected_analysis.replace("+DB", "^DB")
-    #             if to_lower(selected_analysis) == to_lower(gold_analysis):
-    #                 corrects += 1
-    #             else:
-    #                 f.write("{}\t{}\t{}\n".format(word.surface_word, gold_analysis, selected_analysis))
-    #             total += 1
-    #     print("Accuracy: {}".format(corrects * 1.0 / total))
+

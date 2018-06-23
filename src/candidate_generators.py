@@ -23,6 +23,7 @@ class TurkishStemSuffixCandidateGenerator(object):
     WIDE_VOWELS_STR = "[aeoöAEOÖ]"
     NARROW_VOWELS_STR = "[uüıiUÜIİ]"
 
+    STARTS_WITH_UPPER = re.compile(r"^[ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜQVYXZ].*$")
     ENDS_WITH_SOFT_CONSONANTS_REGEX = re.compile(r"^.*[bcdğBCDĞgG]$")
     SUFFIX_TRANSFORMATION_REGEX1 = re.compile(r"[ae]")
     SUFFIX_TRANSFORMATION_REGEX2 = re.compile(r"[ıiuü]")
@@ -238,7 +239,12 @@ class TurkishStemSuffixCandidateGenerator(object):
                 else:
                     continue
             else:
-                stem_tags = self.stem_dic[candidate_root]
+                if TurkishStemSuffixCandidateGenerator.STARTS_WITH_UPPER.match(candidate_root):
+                    stem_tags = ["Noun+Prop"]
+                else:
+                    stem_tags = self.stem_dic[candidate_root]
+                    if "Noun+Prop" in stem_tags:
+                        stem_tags.remove("Noun+Prop")
             cur_candidate_analyzes = self._get_tags(candidate_suffix, stem_tags)
             if cur_candidate_analyzes and len(cur_candidate_analyzes) > 0:
                 candidate_analyzes += [(candidate_root, candidate_suffix, cur_candidate_analysis)
