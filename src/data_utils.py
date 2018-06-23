@@ -240,13 +240,13 @@ def evaluate_candidate_generation(file_path, max_words=0, case_sensitive=True):
 
 
 if __name__ == "__main__":
-    # with open("data/data.train.candidates.txt", "w", encoding="UTF-8") as f:
-    #     data = data_generator("data/data.train.txt", add_gold_labels=True)
-    #     for sentence in data:
-    #         for word in sentence:
-    #             f.write("{}\t{}\n".format(word.surface_word, " ".join([root + "+" + "+".join(tag).replace("+DB", "^DB")
-    #                                                                for root, tag in zip(word.roots, word.tags)])))
-    evaluate_candidate_generation("data/data.train.txt")
+    with open("data/data.train.candidates.txt", "w", encoding="UTF-8") as f:
+        data = data_generator("data/data.train.txt", add_gold_labels=True)
+        for sentence in data:
+            for word in sentence:
+                f.write("{}\t{}\n".format(word.surface_word, " ".join([root + "+" + "+".join(tag).replace("+DB", "^DB")
+                                                                       for root, tag in zip(word.roots, word.tags)])))
+    # evaluate_candidate_generation("data/data.train.txt")
     # non_existing_tags = extract_non_existing_tags("data/Morph.Dis.Test.Hand.Labeled-20K.txt")
     # df = pd.DataFrame(non_existing_tags, index=[0])
     # df = df.transpose()

@@ -194,11 +194,13 @@ class TurkishStemSuffixCandidateGenerator(object):
                                                     candidate_suffix,
                                                     candidate_roots,
                                                     candidate_suffixes)
-        if not self.case_sensitive:
-            candidate_roots.append(surface_word)
-        else:
-            candidate_roots.append(to_lower(surface_word))
+
         candidate_suffixes.append("")
+        candidate_roots.append(to_lower(surface_word))
+        if self.case_sensitive and TurkishStemSuffixCandidateGenerator.STARTS_WITH_UPPER.match(surface_word):
+            candidate_suffixes.append("")
+            candidate_roots.append(capitalize(surface_word))
+
         assert len(candidate_roots) == len(candidate_suffixes)
         TurkishStemSuffixCandidateGenerator._root_transform(candidate_roots)
         if self.asciification:
@@ -273,5 +275,5 @@ class TurkishStemSuffixCandidateGenerator(object):
 
 if __name__ == "__main__":
     candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=True)
-    print(candidate_generator.get_analysis_candidates("Müsiad'a"))
+    print(candidate_generator.get_analysis_candidates("İranlıların"))
 

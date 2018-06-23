@@ -8706,7 +8706,7 @@ zıvırla	64
 Çoğalgil	4096
 Çoğalmış	4096
 Çoğaltım	64
-Çoğu	328
+Çoğu	329
 Çoğul	65
 Çoğulcu	65
 Çoğulhan	4096
@@ -11884,7 +11884,7 @@ zıvırla	64
 çoğalım	64
 çoğal	1024
 çoğaltım	64
-çoğu	264
+çoğu	265
 çoğul	1
 çoğulcu	1
 çoğulla	1024
@@ -23183,7 +23183,7 @@ Bayyar	4096
 Bayyiğit	4096
 Bayyurt	4096
 Bayzat	4096
-Bazı	264
+Bazı	265
 Baz	4160
 Bazal	1
 Bazalt	64
@@ -69101,7 +69101,7 @@ baysal	1
 baysungur	64
 bayt	64
 baytar	64
-bazı	264
+bazı	265
 baz	64
 bazal	1
 bazalt	64

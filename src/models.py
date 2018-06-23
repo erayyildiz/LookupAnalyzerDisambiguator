@@ -63,7 +63,7 @@ class AnalysisScorerModel(object):
         return [char_embedding_table[ch] for ch in token]
 
     def __init__(self, train_from_scratch=True, char_representation_len=128,
-                 word_lstm_rep_len=512, train_data_path="data/data.train.txt",
+                 word_lstm_rep_len=256, train_data_path="data/data.train.txt",
                  dev_data_path="data/data.dev.txt", test_data_paths=["data/data.test.txt"],
                  model_file_name=None, case_sensitive=True):
         assert word_lstm_rep_len % 2 == 0
