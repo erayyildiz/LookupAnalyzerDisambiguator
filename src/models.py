@@ -310,8 +310,8 @@ def calculate_acc_on_testfile(file_path):
 
 
 if __name__ == "__main__":
-    AnalysisScorerModel(train_data_path="data/test.merge", dev_data_path="data/test.merge",
-                        test_data_paths=[],
+    AnalysisScorerModel(train_data_path="data/data.train.txt", dev_data_path="data/data.dev.txt",
+                        test_data_paths=["data/test.merge", "data/data.test.txt", "Morph.Dis.Test.Hand.Labeled-20K.txt"],
                         model_file_name="lookup_disambiguator_wo_suffix", train_from_scratch=True)
 
 
