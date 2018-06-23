@@ -65,7 +65,7 @@ class AnalysisScorerModel(object):
     def __init__(self, train_from_scratch=True, char_representation_len=128,
                  word_lstm_rep_len=512, train_data_path="data/data.train.txt",
                  dev_data_path="data/data.dev.txt", test_data_paths=["data/data.test.txt"],
-                 model_file_name=None, case_sensitive=False):
+                 model_file_name=None, case_sensitive=True):
         assert word_lstm_rep_len % 2 == 0
         self.case_sensitive = case_sensitive
         if train_from_scratch:
