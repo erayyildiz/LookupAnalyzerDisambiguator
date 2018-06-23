@@ -20,6 +20,13 @@ def to_lower(text):
     return text.lower()
 
 
+def capitalize(text):
+    if len(text) > 1:
+        return text[0] + to_lower(text[1:])
+    else:
+        return text
+
+
 def asciify(text):
     text = text.replace("İ", "I")
     text = text.replace("Ç", "C")

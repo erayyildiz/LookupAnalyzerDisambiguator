@@ -187,7 +187,7 @@ def extract_non_existing_tags(file_path):
     return non_existing_tags
 
 
-def evaluate_candidate_generation(file_path, max_words=0, case_sensitive=False):
+def evaluate_candidate_generation(file_path, max_words=0, case_sensitive=True):
     candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=case_sensitive)
     result = []
     with open(file_path, "r", encoding="UTF-8") as f:
@@ -197,7 +197,6 @@ def evaluate_candidate_generation(file_path, max_words=0, case_sensitive=False):
             if 0 < max_words < i:
                 break
             trimmed_line = line.strip(" \r\n\t")
-            trimmed_line = trimmed_line.replace("s", "s")
             if trimmed_line.startswith("<"):
                 continue
             else:
@@ -241,6 +240,12 @@ def evaluate_candidate_generation(file_path, max_words=0, case_sensitive=False):
 
 
 if __name__ == "__main__":
+    # with open("data/data.train.candidates.txt", "w", encoding="UTF-8") as f:
+    #     data = data_generator("data/data.train.txt", add_gold_labels=True)
+    #     for sentence in data:
+    #         for word in sentence:
+    #             f.write("{}\t{}\n".format(word.surface_word, " ".join([root + "+" + "+".join(tag).replace("+DB", "^DB")
+    #                                                                for root, tag in zip(word.roots, word.tags)])))
     evaluate_candidate_generation("data/data.train.txt")
     # non_existing_tags = extract_non_existing_tags("data/Morph.Dis.Test.Hand.Labeled-20K.txt")
     # df = pd.DataFrame(non_existing_tags, index=[0])

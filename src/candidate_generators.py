@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from utils import to_lower, asciify
+from utils import to_lower, asciify, capitalize
 import re
 import math
 import logging.config
@@ -32,6 +32,7 @@ class TurkishStemSuffixCandidateGenerator(object):
     ENDS_NARROW_REGEX = re.compile(r"^.*{}$".format(NARROW_VOWELS_STR))
     TAG_SEPARATOR_REGEX = re.compile(r"[\+\^]")
     NON_WORD_REGEX = re.compile(r"^[^A-Za-zışğüçöÜĞİŞÇÖ]+$")
+    CONTAINS_NUMBER_REGEX = re.compile(r"^.*[0-9].*$")
 
     def __init__(self, case_sensitive=True, asciification=False, suffix_normalization=False):
         self.case_sensitive = case_sensitive
@@ -183,10 +184,16 @@ class TurkishStemSuffixCandidateGenerator(object):
                 candidate_suffix = to_lower(candidate_suffix)
                 self._add_candidate_stem_suffix(candidate_root, candidate_suffix, candidate_roots, candidate_suffixes)
             else:
-                self._add_candidate_stem_suffix(candidate_root, candidate_suffix, candidate_roots, candidate_suffixes)
-                candidate_root = to_lower(candidate_root)
                 candidate_suffix = to_lower(candidate_suffix)
-                self._add_candidate_stem_suffix(candidate_root, candidate_suffix, candidate_roots, candidate_suffixes)
+                self._add_candidate_stem_suffix(to_lower(candidate_root),
+                                                candidate_suffix,
+                                                candidate_roots,
+                                                candidate_suffixes)
+                if TurkishStemSuffixCandidateGenerator.STARTS_WITH_UPPER.match(candidate_root):
+                    self._add_candidate_stem_suffix(capitalize(candidate_root),
+                                                    candidate_suffix,
+                                                    candidate_roots,
+                                                    candidate_suffixes)
         if not self.case_sensitive:
             candidate_roots.append(surface_word)
         else:
@@ -217,8 +224,11 @@ class TurkishStemSuffixCandidateGenerator(object):
         tags = list(set(tags))
         for tag in tags:
             tag_sequences = TurkishStemSuffixCandidateGenerator.TAG_SEPARATOR_REGEX.split(tag)
+            first_tag = tag_sequences[0]
+            if len(tag_sequences) > 1 and tag_sequences[1] in ["Prop", "Time"]:
+                first_tag = "+".join(tag_sequences[0:2])
             if stem_tags:
-                if tag_sequences[0] in stem_tags or "+".join(tag_sequences[0:2]) in stem_tags:
+                if first_tag in stem_tags or first_tag in stem_tags:
                     res.append(tag_sequences)
             else:
                 res.append(tag_sequences)
@@ -229,13 +239,16 @@ class TurkishStemSuffixCandidateGenerator(object):
         candidate_roots, candidate_suffixes = self.get_stem_suffix_candidates(surface_word)
         for candidate_root, candidate_suffix in zip(candidate_roots, candidate_suffixes):
             if TurkishStemSuffixCandidateGenerator.NON_WORD_REGEX.match(candidate_root):
-                stem_tags = ["Punc", "Num", "Noun+Time"]
+                if TurkishStemSuffixCandidateGenerator.CONTAINS_NUMBER_REGEX.match(candidate_root):
+                    stem_tags = ["Num", "Noun+Time"]
+                else:
+                    stem_tags = ["Punc"]
             elif len(candidate_suffix) == 0 and candidate_root not in self.stem_dic:
                 # stem_tags = ["Noun", "Noun+Prop"]
                 continue
             elif candidate_root not in self.stem_dic:
                 if candidate_suffix.startswith("'"):
-                    stem_tags = ["Noun+Prop", "Num"]
+                    stem_tags = ["Noun+Prop"]
                 else:
                     continue
             else:
@@ -245,14 +258,20 @@ class TurkishStemSuffixCandidateGenerator(object):
                     stem_tags = self.stem_dic[candidate_root]
                     if "Noun+Prop" in stem_tags:
                         stem_tags.remove("Noun+Prop")
-            cur_candidate_analyzes = self._get_tags(candidate_suffix, stem_tags)
-            if cur_candidate_analyzes and len(cur_candidate_analyzes) > 0:
-                candidate_analyzes += [(candidate_root, candidate_suffix, cur_candidate_analysis)
-                                       for cur_candidate_analysis in cur_candidate_analyzes]
+
+            candidate_tags = self._get_tags(candidate_suffix, stem_tags)
+            cur_candidate_analyzes = []
+            cur_candidate_analyzes_str = []
+            for candidate_tag in candidate_tags:
+                if candidate_root + "+" + "+".join(candidate_tag).replace("+DB", "'DB") not in cur_candidate_analyzes_str:
+                    cur_candidate_analyzes.append((candidate_root, candidate_suffix, candidate_tag))
+                    cur_candidate_analyzes_str.append(candidate_root + "+" + "+".join(candidate_tag).replace("+DB", "'DB"))
+            candidate_analyzes += cur_candidate_analyzes
+
         return candidate_analyzes
 
 
 if __name__ == "__main__":
-    candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=False)
-    print(candidate_generator.get_analysis_candidates("MahalleYE"))
+    candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=True)
+    print(candidate_generator.get_analysis_candidates("Müsiad'a"))
 

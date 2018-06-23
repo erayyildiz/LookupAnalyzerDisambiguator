@@ -70,7 +70,6 @@ class AnalysisScorerModel(object):
         self.case_sensitive = case_sensitive
         if train_from_scratch:
             assert train_data_path
-            assert len(test_data_paths) > 0
             logger.info("Loading data...")
             self.train_data_path = train_data_path
             self.dev_data_path = dev_data_path
@@ -209,7 +208,7 @@ class AnalysisScorerModel(object):
             total += len(sentence)
         return (corrects * 1.0 / total), ((corrects - non_ambigious_count) * 1.0 / (total - non_ambigious_count))
 
-    def train_model(self, model_name="model", early_stop=False, num_epoch=20):
+    def train_model(self, model_name="model", early_stop=False, num_epoch=200):
         logger.info("Starting training...")
         max_acc = 0.0
         epoch_loss = 0
@@ -311,9 +310,8 @@ def calculate_acc_on_testfile(file_path):
 
 
 if __name__ == "__main__":
-    AnalysisScorerModel(train_data_path="data/data.train.txt", dev_data_path="data/data.dev.txt",
-                        test_data_paths=["data/test.merge", "data/data.test.txt",
-                                         "data/Morph.Dis.Test.Hand.Labeled-20K.txt"],
+    AnalysisScorerModel(train_data_path="data/test.merge", dev_data_path="data/test.merge",
+                        test_data_paths=[],
                         model_file_name="lookup_disambiguator_wo_suffix", train_from_scratch=True)
 
 
