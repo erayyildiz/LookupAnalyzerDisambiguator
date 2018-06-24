@@ -204,7 +204,6 @@ class AnalysisScorerModel(object):
         for sentence in sentences:
             predicted_label_indexes = self.predict_indices(sentence)
             corrects += predicted_label_indexes.count(0)
-            non_ambigious_count += [1 for w in sentence if len(w.roots) == 1].count(1)
             total += len(sentence)
         return (corrects * 1.0 / total), ((corrects - non_ambigious_count) * 1.0 / (total - non_ambigious_count))
 
@@ -213,7 +212,6 @@ class AnalysisScorerModel(object):
         max_acc = 0.0
         epoch_loss = 0
         for epoch in range(num_epoch):
-            logger.info("Loading data...")
             self.train = data_generator(self.train_data_path, add_gold_labels=True)
             self.dev = data_generator(self.dev_data_path, add_gold_labels=True)
             self.tests = []
@@ -221,8 +219,22 @@ class AnalysisScorerModel(object):
                 self.tests.append(data_generator(test_path, add_gold_labels=True))
             t1 = datetime.now()
             count = 0
+            corrects = 0
+            total = 0
             for i, sentence in enumerate(self.train, 1):
-                loss_exp = self.get_loss(sentence)
+                scores = self.propogate(sentence)
+
+                errs = []
+                for score in scores:
+                    err = dy.pickneglogsoftmax(score, 0)
+                    errs.append(err)
+                    probs = dy.softmax(score)
+                    predicted_label_index = np.argmax(probs.npvalue())
+                    if predicted_label_index == 0:
+                        corrects += 1
+                    total += 1
+
+                loss_exp = dy.esum(errs)
                 cur_loss = loss_exp.scalar_value()
                 epoch_loss += cur_loss
                 loss_exp.backward()
@@ -235,12 +247,12 @@ class AnalysisScorerModel(object):
                 count = i
             t2 = datetime.now()
             delta = t2 - t1
-            logger.info("epoch {} finished in {} minutes. loss = {}"
-                        .format(epoch, delta.seconds / 60.0, epoch_loss / count * 1.0))
-            logger.info("Calculating Accuracy on dev set")
+            logger.info("\nEpoch {} finished in {} minutes. \nloss = {}, train accuracy: {}"
+                        .format(epoch, delta.seconds / 60.0, epoch_loss / count * 1.0, corrects * 1.0 / total))
+            # logger.info("Calculating Accuracy on dev set")
             epoch_loss = 0
-            acc, amb_acc = self.calculate_acc(self.dev)
-            logger.info("Accuracy on dev set:{}\nAmbiguous accuracy on dev set:{} ".format(acc, amb_acc))
+            acc, _ = self.calculate_acc(self.dev)
+            logger.info("Accuracy on dev set:{}".format(acc))
             if acc > max_acc:
                 max_acc = acc
                 logger.info("Max accuracy increased, saving model...")
@@ -249,11 +261,11 @@ class AnalysisScorerModel(object):
                 logger.info("Max accuracy did not increase, early stopping!")
                 break
 
-            logger.info("Calculating Accuracy on test sets")
+            # logger.info("Calculating Accuracy on test sets")
             for q in range(len(self.test_data_paths)):
-                logger.info("Calculating Accuracy on test set: {}".format(self.test_data_paths[q]))
+                # logger.info("Calculating Accuracy on test set: {}".format(self.test_data_paths[q]))
                 acc, amb_acc = self.calculate_acc(self.tests[q])
-                logger.info(" accuracy: {}    ambiguous accuracy: {}".format(acc, amb_acc))
+                logger.info("Test set: {}, accuracy: {}".format(self.test_data_paths[q], acc))
 
     def save_model(self, model_name):
         self.model.save("resources/models/" + model_name + ".model")
@@ -311,7 +323,7 @@ def calculate_acc_on_testfile(file_path):
 
 if __name__ == "__main__":
     AnalysisScorerModel(train_data_path="data/data.train.txt", dev_data_path="data/data.dev.txt",
-                        test_data_paths=["data/test.merge", "data/data.test.txt", "Morph.Dis.Test.Hand.Labeled-20K.txt"],
+                        test_data_paths=["data/test.merge", "data/data.test.txt", "data/Morph.Dis.Test.Hand.Labeled-20K.txt"],
                         model_file_name="lookup_disambiguator_wo_suffix", train_from_scratch=True)
 
 
