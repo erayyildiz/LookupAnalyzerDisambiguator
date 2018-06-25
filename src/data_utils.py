@@ -85,7 +85,7 @@ def load_data(file_path, max_sentence=0, add_gold_labels=True, case_sensitive=Fa
     candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=case_sensitive)
     with open(file_path, "r", encoding="UTF-8") as f:
         for i, line in enumerate(f):
-            if 0 < max_lines < i:
+            if 0 < max_sentence < i:
                 break
             trimmed_line = line.strip(" \r\n\t")
             trimmed_line = trimmed_line.replace("s", "s")

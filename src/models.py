@@ -226,29 +226,34 @@ class AnalysisScorerModel(object):
             total = 0
             word_counter = 0
             for i, sentence in enumerate(self.train, 1):
-                word_counter += len(sentence)
-                scores = self.propogate(sentence)
-                errs = []
-                for score in scores:
-                    err = dy.pickneglogsoftmax(score, 0)
-                    errs.append(err)
-                    probs = dy.softmax(score)
-                    predicted_label_index = np.argmax(probs.npvalue())
-                    if predicted_label_index == 0:
-                        corrects += 1
-                    total += 1
+                try:
+                    word_counter += len(sentence)
+                    scores = self.propogate(sentence)
+                    errs = []
+                    for score in scores:
+                        err = dy.pickneglogsoftmax(score, 0)
+                        errs.append(err)
+                        probs = dy.softmax(score)
+                        predicted_label_index = np.argmax(probs.npvalue())
+                        if predicted_label_index == 0:
+                            corrects += 1
+                        total += 1
 
-                loss_exp = dy.esum(errs)
-                cur_loss = loss_exp.scalar_value()
-                epoch_loss += cur_loss
-                loss_exp.backward()
-                self.trainer.update()
-                if i % 100 == 0:  # logger.info status
-                    t2 = datetime.now()
-                    delta = t2 - t1
-                    logger.info("{} instances finished in  {} seconds, loss={}, acc={}"
-                                .format(i, delta.seconds, epoch_loss / (word_counter * 1.0), corrects * 1.0 / total))
-                count = i
+                    loss_exp = dy.esum(errs)
+                    cur_loss = loss_exp.scalar_value()
+                    epoch_loss += cur_loss
+                    loss_exp.backward()
+                    self.trainer.update()
+                    if i % 100 == 0:  # logger.info status
+                        t2 = datetime.now()
+                        delta = t2 - t1
+                        logger.info("{} instances finished in  {} seconds, loss={}, acc={}"
+                                    .format(i, delta.seconds, epoch_loss / (word_counter * 1.0),
+                                            corrects * 1.0 / total))
+                    count = i
+                except Exception as e:
+                    logger.error(e)
+
             t2 = datetime.now()
             delta = t2 - t1
             logger.info("Epoch {} finished in {} minutes. loss = {}, train accuracy: {}"
