@@ -210,7 +210,7 @@ class TurkishStemSuffixCandidateGenerator(object):
             TurkishStemSuffixCandidateGenerator.suffix_transform(candidate_suffixes)
         return candidate_roots, candidate_suffixes
 
-    def _get_tags(self, suffix, stem_tags=None):
+    def get_tags(self, suffix, stem_tags=None):
         if suffix and len(suffix) > 0:
             if suffix in self.suffix_dic:
                 tags = self.suffix_dic[suffix]
@@ -261,7 +261,7 @@ class TurkishStemSuffixCandidateGenerator(object):
                     if "Noun+Prop" in stem_tags:
                         stem_tags.remove("Noun+Prop")
 
-            candidate_tags = self._get_tags(candidate_suffix, stem_tags)
+            candidate_tags = self.get_tags(candidate_suffix, stem_tags)
             cur_candidate_analyzes = []
             cur_candidate_analyzes_str = []
             for candidate_tag in candidate_tags:

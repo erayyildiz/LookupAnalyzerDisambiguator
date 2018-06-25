@@ -1,11 +1,13 @@
 # coding=utf-8
+import random
+
 import dynet as dy
 import numpy as np
 import pickle
 from datetime import datetime
 
 from candidate_generators import TurkishStemSuffixCandidateGenerator
-from data_utils import data_generator
+from data_utils import data_generator, load_data
 import logging.config
 
 from utils import to_lower, WordStruct
@@ -212,7 +214,8 @@ class AnalysisScorerModel(object):
         max_acc = 0.0
         epoch_loss = 0
         for epoch in range(num_epoch):
-            self.train = data_generator(self.train_data_path, add_gold_labels=True)
+            self.train = load_data(self.train_data_path, add_gold_labels=True)
+            random.shuffle(self.train)
             self.dev = data_generator(self.dev_data_path, add_gold_labels=True)
             self.tests = []
             for test_path in self.test_data_paths:
@@ -322,9 +325,54 @@ def calculate_acc_on_testfile(file_path):
         print("Accuracy: {}".format(corrects * 1.0 / total))
 
 
+def error_analysis(file_path, add_gold_labels=False):
+    test_data = data_generator(file_path, add_gold_labels=add_gold_labels)
+    stemmer = AnalysisScorerModel.create_from_existed_model("lookup_disambiguator_wo_suffix")
+    corrects = 0
+    total = 0
+    with open("model_error_analysis.txt", "w", encoding="UTF-8") as f:
+        for sentence in test_data:
+            scores = stemmer.propogate(sentence)
+            for score, word in zip(scores, sentence):
+                analysis_scores = {}
+                probs = dy.softmax(score)
+                analyzes_probs = probs.npvalue()
+                max_analysis = ""
+                max_prob = 0.0
+                for i, (root, analysis, analysis_prob) in enumerate(zip(word.roots, word.tags, analyzes_probs)):
+                    analysis_str = "+".join(analysis).replace("+DB", "^DB")
+                    analysis_str = root + "+" + analysis_str
+                    if i == 0:
+                        correct_analysis = analysis_str
+                    if analysis_prob > max_prob:
+                        max_prob = analysis_prob
+                        max_analysis = analysis_str
+                    analysis_scores[analysis_str] = analysis_prob
+                if max_analysis == correct_analysis:
+                    corrects += 1
+                    f.write("+Correct:\tCorrect analysis: {}\tSelected analysis: {}\n"
+                            .format(correct_analysis, max_analysis))
+                else:
+                    f.write("-Incorrect:\tCorrect analysis: {}\tSelected analysis: {}\n"
+                            .format(correct_analysis, max_analysis))
+                total += 1
+
+                for analysis_str, prob in analysis_scores.items():
+                    f.write("{}:\t{}".format(analysis_str, prob))
+                f.write("\n")
+    print("Corrects: {}\tTotal: {}\t Accuracy: {}".format(corrects, total, corrects * 1.0 / total))
+
+
 if __name__ == "__main__":
+
     AnalysisScorerModel(train_data_path="data/data.train.txt", dev_data_path="data/data.dev.txt",
                         test_data_paths=["data/test.merge", "data/data.test.txt", "data/Morph.Dis.Test.Hand.Labeled-20K.txt"],
                         model_file_name="lookup_disambiguator_wo_suffix", train_from_scratch=True)
+
+    # stemmer = AnalysisScorerModel.create_from_existed_model("lookup_disambiguator_wo_suffix")
+    # print(stemmer.predict(["hesabına"]))
+
+    # error_analysis("data/test.merge", add_gold_labels=True)
+
 
 

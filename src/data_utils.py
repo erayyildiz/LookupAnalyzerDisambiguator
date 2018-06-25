@@ -5,7 +5,7 @@ import math
 import pandas as pd
 from candidate_generators import TurkishStemSuffixCandidateGenerator
 from utils import get_root_from_analysis, get_tags_from_analysis, WordStruct, \
-    convert_tag_list_to_str, to_lower, standardize_tags
+    convert_tag_list_to_str, to_lower, standardize_tags, capitalize
 
 
 def data_generator(file_path, add_gold_labels=True, case_sensitive=True, max_lines=0):
@@ -57,6 +57,20 @@ def data_generator(file_path, add_gold_labels=True, case_sensitive=True, max_lin
                         roots.append(candidate_root)
                         suffixes.append(candidate_suffix)
                         tags.append(candidate_tag)
+                    if len(roots) == 0:
+                        if TurkishStemSuffixCandidateGenerator.STARTS_WITH_UPPER.match(surface):
+                            candidate_tags = candidate_generator.get_tags("", stem_tags=["Noun", "Noun+Prop"])
+                        else:
+                            candidate_tags = candidate_generator.get_tags("", stem_tags=["Noun"])
+                        for candidate_tag in candidate_tags:
+                            if "Prop" in candidate_tag:
+                                roots.append(capitalize(surface))
+                                suffixes.append("")
+                                tags.append(candidate_tag)
+                            else:
+                                roots.append(to_lower(surface))
+                                suffixes.append("")
+                                tags.append(candidate_tag)
                 if not case_sensitive:
                     surface = to_lower(surface)
                     roots = [to_lower(root) for root in roots]
@@ -66,11 +80,13 @@ def data_generator(file_path, add_gold_labels=True, case_sensitive=True, max_lin
 
 
 def load_data(file_path, max_sentence=0, add_gold_labels=True, case_sensitive=False):
-    sentence = []
     sentences = []
+    sentence = []
     candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=case_sensitive)
     with open(file_path, "r", encoding="UTF-8") as f:
-        for line in f:
+        for i, line in enumerate(f):
+            if 0 < max_lines < i:
+                break
             trimmed_line = line.strip(" \r\n\t")
             trimmed_line = trimmed_line.replace("s", "s")
             if trimmed_line.startswith("<S>") or trimmed_line.startswith("<s>"):
@@ -78,8 +94,6 @@ def load_data(file_path, max_sentence=0, add_gold_labels=True, case_sensitive=Fa
             elif trimmed_line.startswith("</S>") or trimmed_line.startswith("</s>"):
                 if len(sentence) > 0:
                     sentences.append(sentence)
-                    if 0 < max_sentence < len(sentences):
-                        return sentences
             elif len(trimmed_line) == 0 or "<DOC>" in trimmed_line or trimmed_line.startswith(
                     "</DOC>") or trimmed_line.startswith("<TITLE>") or trimmed_line.startswith("</TITLE>"):
                 pass
@@ -93,23 +107,42 @@ def load_data(file_path, max_sentence=0, add_gold_labels=True, case_sensitive=Fa
                 if add_gold_labels:
                     analyzes = parses[1:]
                     gold_root = get_root_from_analysis(analyzes[0])
+                    if not case_sensitive:
+                        gold_root = to_lower(gold_root)
                     roots.append(gold_root)
                     gold_suffix = surface[len(gold_root):]
+                    if not case_sensitive:
+                        gold_suffix = to_lower(gold_suffix)
                     suffixes.append(gold_suffix)
                     gold_tag = standardize_tags(get_tags_from_analysis(analyzes[0]))
                     tags.append(gold_tag)
 
                     for candidate_root, candidate_suffix, candidate_tag in candidates:
-                        if candidate_root != gold_root or candidate_suffix != gold_suffix \
-                                or set(candidate_tag) != set(gold_tag):
+                        if candidate_root != gold_root or "".join(candidate_tag) != "".join(gold_tag):
                             roots.append(candidate_root)
                             suffixes.append(candidate_suffix)
                             tags.append(candidate_tag)
+                        elif candidate_suffix != gold_suffix and candidate_root == gold_root:
+                            suffixes[0] = candidate_suffix
                 else:
                     for candidate_root, candidate_suffix, candidate_tag in candidates:
                         roots.append(candidate_root)
                         suffixes.append(candidate_suffix)
                         tags.append(candidate_tag)
+                    if len(roots) == 0:
+                        if TurkishStemSuffixCandidateGenerator.STARTS_WITH_UPPER.match(surface):
+                            candidate_tags = candidate_generator.get_tags("", stem_tags=["Noun", "Noun+Prop"])
+                        else:
+                            candidate_tags = candidate_generator.get_tags("", stem_tags=["Noun"])
+                        for candidate_tag in candidate_tags:
+                            if "Prop" in candidate_tag:
+                                roots.append(capitalize(surface))
+                                suffixes.append("")
+                                tags.append(candidate_tag)
+                            else:
+                                roots.append(to_lower(surface))
+                                suffixes.append("")
+                                tags.append(candidate_tag)
                 if not case_sensitive:
                     surface = to_lower(surface)
                     roots = [to_lower(root) for root in roots]
