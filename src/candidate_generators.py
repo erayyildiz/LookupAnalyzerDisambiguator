@@ -16,7 +16,8 @@ class TurkishStemSuffixCandidateGenerator(object):
                     8: "Pron", 9: "Ques", 10: "Verb", 11: "Num", 12: "Noun+Prop"}
 
     SUFFIX_DICT_FILE_PATH = "resources/Suffixes&Tags.txt"
-    STEM_LIST_FILE_PATH = "resources/StemListWithFlags.txt"
+    STEM_LIST_FILE_PATH = "resources/StemListWithFlags_v2.txt"
+    EXACT_LOOKUP_TABLE_FILE_PATH = "resources/ExactLookup.txt"
 
     CONSONANT_STR = "[bcdfgğhjklmnprsştvyzxwqBCDFGĞHJKLMNPRSŞTVYZXWQ]"
     VOWEL_STR = "[aeıioöuüAEIİOÖUÜ]"
@@ -46,6 +47,16 @@ class TurkishStemSuffixCandidateGenerator(object):
         logger.info("Reading stem list")
         self.read_stem_list()
         logger.info("Done.")
+        self.exact_lookup_table = {}
+        self.read_exact_lookup_table()
+
+    def read_exact_lookup_table(self):
+        with open(TurkishStemSuffixCandidateGenerator.EXACT_LOOKUP_TABLE_FILE_PATH, "r", encoding="UTF-8") as f:
+            for line in f:
+                splits = line.strip().split("\t")
+                word = splits[0]
+                analyzes = splits[1].split(" ")
+                self.exact_lookup_table[word] = analyzes
 
     def read_suffix_dic(self):
         with open(TurkishStemSuffixCandidateGenerator.SUFFIX_DICT_FILE_PATH, "r", encoding="UTF-8") as f:
@@ -115,6 +126,11 @@ class TurkishStemSuffixCandidateGenerator(object):
 
     @staticmethod
     def _add_candidate_stem_suffix(stem_candidate, suffix_candidate, candidate_roots, candidate_suffixes):
+        if "'" in suffix_candidate:
+            candidate_roots.append(stem_candidate)
+            candidate_suffixes.append(suffix_candidate)
+            return
+
         # Bana, Sana -> ben, sen
         if stem_candidate == "ban" and suffix_candidate == "a":
             candidate_roots.append("ben")
@@ -237,7 +253,17 @@ class TurkishStemSuffixCandidateGenerator(object):
         return res
 
     def get_analysis_candidates(self, surface_word):
+        if to_lower(surface_word) in self.exact_lookup_table:
+            cur_candidate_analyzes = []
+            analyzes = self.exact_lookup_table[to_lower(surface_word)]
+            for analysis in analyzes:
+                suffix = analysis.split("/")[0]
+                root = TurkishStemSuffixCandidateGenerator.TAG_SEPARATOR_REGEX.split(analysis.split("/")[1])[0]
+                tags = TurkishStemSuffixCandidateGenerator.TAG_SEPARATOR_REGEX.split(analysis.split("/")[1])[1:]
+                cur_candidate_analyzes.append((root, suffix, tags))
+            return cur_candidate_analyzes
         candidate_analyzes = []
+        candidate_analyzes_str = []
         candidate_roots, candidate_suffixes = self.get_stem_suffix_candidates(surface_word)
         for candidate_root, candidate_suffix in zip(candidate_roots, candidate_suffixes):
             if TurkishStemSuffixCandidateGenerator.NON_WORD_REGEX.match(candidate_root):
@@ -249,25 +275,31 @@ class TurkishStemSuffixCandidateGenerator(object):
                 # stem_tags = ["Noun", "Noun+Prop"]
                 continue
             elif candidate_root not in self.stem_dic:
-                if candidate_suffix.startswith("'"):
+                if "'" in candidate_suffix and candidate_suffix in self.suffix_dic:
                     stem_tags = ["Noun+Prop"]
                 else:
                     continue
             else:
-                if TurkishStemSuffixCandidateGenerator.STARTS_WITH_UPPER.match(candidate_root):
-                    stem_tags = ["Noun+Prop"]
-                else:
-                    stem_tags = self.stem_dic[candidate_root]
-                    if "Noun+Prop" in stem_tags:
+                stem_tags = self.stem_dic[candidate_root]
+                if not TurkishStemSuffixCandidateGenerator.STARTS_WITH_UPPER.match(candidate_root)\
+                    and "Noun+Prop" in stem_tags:\
                         stem_tags.remove("Noun+Prop")
+                elif TurkishStemSuffixCandidateGenerator.STARTS_WITH_UPPER.match(candidate_root) \
+                        and "Noun+Prop" in stem_tags:
+                    stem_tags = ["Noun+Prop"]
+                elif candidate_suffix.startswith("'") and candidate_suffix in self.suffix_dic \
+                        and "Noun+Prop" in stem_tags:
+                    stem_tags = ["Noun+Prop"]
+                elif TurkishStemSuffixCandidateGenerator.STARTS_WITH_UPPER.match(candidate_root):
+                    continue
 
             candidate_tags = self.get_tags(candidate_suffix, stem_tags)
             cur_candidate_analyzes = []
-            cur_candidate_analyzes_str = []
             for candidate_tag in candidate_tags:
-                if candidate_root + "+" + "+".join(candidate_tag).replace("+DB", "'DB") not in cur_candidate_analyzes_str:
-                    cur_candidate_analyzes.append((candidate_root, candidate_suffix, candidate_tag))
-                    cur_candidate_analyzes_str.append(candidate_root + "+" + "+".join(candidate_tag).replace("+DB", "'DB"))
+                if to_lower(candidate_root) + "+" + "+".join(candidate_tag).replace("+DB", "^DB") not in candidate_analyzes_str:
+                    cur_candidate_analyzes.append((to_lower(candidate_root), candidate_suffix, candidate_tag))
+                    candidate_analyzes_str.append(to_lower(candidate_root)
+                                                      + "+" + "+".join(candidate_tag).replace("+DB", "^DB"))
             candidate_analyzes += cur_candidate_analyzes
 
         return candidate_analyzes
@@ -275,5 +307,5 @@ class TurkishStemSuffixCandidateGenerator(object):
 
 if __name__ == "__main__":
     candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=True)
-    print(candidate_generator.get_analysis_candidates("İranlıların"))
+    print(candidate_generator.get_analysis_candidates("Oteli'inin"))
 

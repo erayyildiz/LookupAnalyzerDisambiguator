@@ -35,8 +35,7 @@ def data_generator(file_path, add_gold_labels=True, case_sensitive=True, max_lin
                 if add_gold_labels:
                     analyzes = parses[1:]
                     gold_root = get_root_from_analysis(analyzes[0])
-                    if not case_sensitive:
-                        gold_root = to_lower(gold_root)
+                    gold_root = to_lower(gold_root)
                     roots.append(gold_root)
                     gold_suffix = surface[len(gold_root):]
                     if not case_sensitive:
@@ -46,8 +45,8 @@ def data_generator(file_path, add_gold_labels=True, case_sensitive=True, max_lin
                     tags.append(gold_tag)
 
                     for candidate_root, candidate_suffix, candidate_tag in candidates:
-                        if candidate_root != gold_root or "".join(candidate_tag) != "".join(gold_tag):
-                            roots.append(candidate_root)
+                        if to_lower(candidate_root) != to_lower(gold_root) or "".join(candidate_tag) != "".join(gold_tag):
+                            roots.append(to_lower(candidate_root))
                             suffixes.append(candidate_suffix)
                             tags.append(candidate_tag)
                         elif candidate_suffix != gold_suffix and candidate_root == gold_root:
@@ -107,8 +106,7 @@ def load_data(file_path, max_sentence=0, add_gold_labels=True, case_sensitive=Fa
                 if add_gold_labels:
                     analyzes = parses[1:]
                     gold_root = get_root_from_analysis(analyzes[0])
-                    if not case_sensitive:
-                        gold_root = to_lower(gold_root)
+                    gold_root = to_lower(gold_root)
                     roots.append(gold_root)
                     gold_suffix = surface[len(gold_root):]
                     if not case_sensitive:
@@ -118,8 +116,8 @@ def load_data(file_path, max_sentence=0, add_gold_labels=True, case_sensitive=Fa
                     tags.append(gold_tag)
 
                     for candidate_root, candidate_suffix, candidate_tag in candidates:
-                        if candidate_root != gold_root or "".join(candidate_tag) != "".join(gold_tag):
-                            roots.append(candidate_root)
+                        if to_lower(candidate_root) != to_lower(gold_root) or "".join(candidate_tag) != "".join(gold_tag):
+                            roots.append(to_lower(candidate_root))
                             suffixes.append(candidate_suffix)
                             tags.append(candidate_tag)
                         elif candidate_suffix != gold_suffix and candidate_root == gold_root:

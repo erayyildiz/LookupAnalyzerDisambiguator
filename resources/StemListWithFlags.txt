@@ -15951,7 +15951,7 @@ Açıcı	4096
 Açıkçası	2
 Açıköğretim	64
 Açıköz	4096
-Açık	4163
+Açık	67
 Açıkada	4096
 Açıkalın	4096
 Açıkay	4096
@@ -35475,7 +35475,7 @@ Geçeğ	64
 Geçe	4288
 Geçeci	4096
 Geçek	64
-Geçen	4161
+Geçen	65
 Geçende	2
 Geçenek	64
 Geçengün	4096
