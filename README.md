@@ -29,7 +29,7 @@ You can just send a post request to `localhost:8081/analyze` to analyze a Turkis
 
 #### Example requests and responses
 
-#####Request1 :
+**Request1 :**
 ```cURL 
 curl --request POST \
   --url http://localhost:8081/analyze \
@@ -43,7 +43,7 @@ curl --request POST \
     ]}'
 ```
 
-#####Response 1:
+**Response 1:**
 ```json
 [
     "alın+Noun+A3sg+Pnon+Nom",
@@ -51,7 +51,7 @@ curl --request POST \
 ]
 ```
 
-#####Request2 :
+**Request2 :**
 ```cURL 
 curl --request POST \
   --url http://localhost:8081/analyze \
@@ -67,7 +67,7 @@ curl --request POST \
      ]}'
 ```
 
-#####Response 2:
+**Response 2:**
 ```json
 [
     "gelir+Noun+A3sg+Pnon+Nom^DB+Verb+Zero^DB+Adverb+While",
@@ -76,5 +76,14 @@ curl --request POST \
     ".+Punc"
 ]
 ```
+
+
+#### Notes
+
+Please email me and ask for permission to use this tool.
+Also note that this is not a release version and may contain some bugs.
+Every contribution is welcome.
+
+We still continue working with my advisor Assoc. Prof. Cuneyd Tantug in my PhD thesis. Wait for better accuracies :)
 
 
