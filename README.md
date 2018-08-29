@@ -84,6 +84,6 @@ Please email me and ask for permission to use this tool.
 Also note that this is not a release version and may contain some bugs.
 Every contribution is welcome.
 
-We still continue working with my advisor Assoc. Prof. Cuneyd Tantug in my PhD thesis. Wait for better accuracies :)
+We still continue working with my advisor in my PhD thesis. Wait for better accuracies :)
 
 
