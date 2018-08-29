@@ -10,7 +10,7 @@ from candidate_generators import TurkishStemSuffixCandidateGenerator
 from data_utils import data_generator, load_data
 import logging.config
 
-from utils import to_lower, WordStruct
+from utils import to_lower, WordStruct, capitalize
 
 logging.config.fileConfig('resources/logging.ini')
 logger = logging.getLogger(__file__)
@@ -70,6 +70,7 @@ class AnalysisScorerModel(object):
                  model_file_name=None, case_sensitive=True):
         assert word_lstm_rep_len % 2 == 0
         self.case_sensitive = case_sensitive
+        self.candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=case_sensitive)
         if train_from_scratch:
             assert train_data_path
             logger.info("Loading data...")
@@ -103,6 +104,7 @@ class AnalysisScorerModel(object):
             logger.info("Loading Pre-Trained Model")
             assert model_file_name
             self.load_model(model_file_name, char_representation_len, word_lstm_rep_len)
+            logger.info("Ready")
 
     def propogate(self, sentence):
         dy.renew_cg()
@@ -181,10 +183,9 @@ class AnalysisScorerModel(object):
 
     def predict(self, tokens):
         sentence = []
-        candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=False)
         for token in tokens:
             token = to_lower(token)
-            candidate_analyzes = candidate_generator.get_analysis_candidates(token)
+            candidate_analyzes = self.candidate_generator.get_analysis_candidates(token)
             roots = []
             tags = []
             for analysis in candidate_analyzes:
@@ -194,6 +195,8 @@ class AnalysisScorerModel(object):
         selected_indices = self.predict_indices(sentence)
         res = []
         for i, j in enumerate(selected_indices):
+            if "Prop" in sentence[i].tags[j]:
+                sentence[i].roots[j] = capitalize(sentence[i].roots[j])
             selected_analysis = sentence[i].roots[j] + "+" + "+".join(sentence[i].tags[j])
             selected_analysis = selected_analysis.replace("+DB", "^DB")
             res.append(selected_analysis)
@@ -330,15 +333,15 @@ def calculate_acc_on_testfile(file_path):
         print("Accuracy: {}".format(corrects * 1.0 / total))
 
 
-def error_analysis(file_path, add_gold_labels=False):
+def error_analysis(file_path, output_path, add_gold_labels=True):
     test_data = data_generator(file_path, add_gold_labels=add_gold_labels)
     stemmer = AnalysisScorerModel.create_from_existed_model("lookup_disambiguator_wo_suffix")
     corrects = 0
     total = 0
-    with open("model_error_analysis.txt", "w", encoding="UTF-8") as f:
+    with open("error_analysis/" + output_path, "w", encoding="UTF-8") as f:
         for sentence in test_data:
             scores = stemmer.propogate(sentence)
-            for score, word in zip(scores, sentence):
+            for word_index, (score, word) in enumerate(zip(scores, sentence)):
                 analysis_scores = {}
                 probs = dy.softmax(score)
                 analyzes_probs = probs.npvalue()
@@ -346,6 +349,8 @@ def error_analysis(file_path, add_gold_labels=False):
                 max_prob = 0.0
                 for i, (root, analysis, analysis_prob) in enumerate(zip(word.roots, word.tags, analyzes_probs)):
                     analysis_str = "+".join(analysis).replace("+DB", "^DB")
+                    if "Prop" in analysis_str:
+                        root = capitalize(root)
                     analysis_str = root + "+" + analysis_str
                     if i == 0:
                         correct_analysis = analysis_str
@@ -355,16 +360,25 @@ def error_analysis(file_path, add_gold_labels=False):
                     analysis_scores[analysis_str] = analysis_prob
                 if max_analysis == correct_analysis:
                     corrects += 1
-                    f.write("+Correct:\tCorrect analysis: {}\tSelected analysis: {}\n"
-                            .format(correct_analysis, max_analysis))
                 else:
-                    f.write("-Incorrect:\tCorrect analysis: {}\tSelected analysis: {}\n"
+                    f.write("Surface: {}\n".format(word.surface_word))
+                    f.write("Correct analysis: {}\tSelected analysis: {}\n"
                             .format(correct_analysis, max_analysis))
+                    if word_index < 2:
+                        start = 0
+                    else:
+                        start = word_index - 2
+                    if word_index > len(sentence) - 3:
+                        end = len(sentence)
+                    else:
+                        end = word_index + 3
+                    f.write("Context: {}\n".format(" ".join([w.surface_word for w in sentence[start:end]])))
+                    for analysis_str, prob in analysis_scores.items():
+                        f.write("{}:\t{}\n".format(analysis_str, prob))
+                    f.write("\n\n")
                 total += 1
 
-                for analysis_str, prob in analysis_scores.items():
-                    f.write("{}:\t{}".format(analysis_str, prob))
-                f.write("\n")
+
     print("Corrects: {}\tTotal: {}\t Accuracy: {}".format(corrects, total, corrects * 1.0 / total))
 
 
@@ -372,12 +386,14 @@ if __name__ == "__main__":
 
     AnalysisScorerModel(train_data_path="data/data.train.txt", dev_data_path="data/data.dev.txt",
                         test_data_paths=["data/test.merge", "data/data.test.txt", "data/Morph.Dis.Test.Hand.Labeled-20K.txt"],
-                        model_file_name="lookup_disambiguator_wo_suffix", train_from_scratch=True)
+                        model_file_name="lookup_disambiguator_wo_suffix_v2", train_from_scratch=True)
 
     # stemmer = AnalysisScorerModel.create_from_existed_model("lookup_disambiguator_wo_suffix")
-    # print(stemmer.predict(["hesabına"]))
-
-    # error_analysis("data/test.merge", add_gold_labels=True)
+    # print(stemmer.predict(["Evren", "defa", "yedi", "."]))
+    # error_analysis("data/data.dev.txt", "data.dev.error_analysis.txt")
+    # error_analysis("data/test.merge", "test.merge.error_analysis.txt")
+    # error_analysis("data/data.test.txt", "data.test.error_analysis.txt")
+    # error_analysis("data/Morph.Dis.Test.Hand.Labeled-20K.txt", "Morph.Dis.Test.Hand.Labeled-20K.error_analysis.txt")
 
 
 

@@ -1,0 +1,8 @@
+data*
+error_analysis*
+*.xlsx
+.gitignore
+LICENCE
+*.md
+resources/uniq_analyzes.txt
+resources/surface_words.uniq.analyzed.txt
