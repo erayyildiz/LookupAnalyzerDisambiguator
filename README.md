@@ -10,6 +10,11 @@ Using this simple morphological analzyzer, all possible analyzes of each token i
 A neural network (specifically Bidirectional character based LSTMs) is implemented using DyNet library and trained for selecting the correct morphological analysis among all possible analyzes according to the context which words have appeared in.
 The neural network architecture is similar to the architecture used in [Shen et. al.'s study](http://www.aclweb.org/anthology/C16-1018)
 
+###Performance
+Although we do not use any complex morphological analyzer as in ost of the studies,
+our results are competitive with state-of-the-art morphological disambiguators (96%~97% accuracy).
+
+We will report a comprehensive evaluation results soon.
 
 ### Usage
 Just build a docker image using Dockerfile in the repo:
