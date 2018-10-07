@@ -64,7 +64,7 @@ class AnalysisScorerModel(object):
     def _embed(cls, token, char_embedding_table):
         return [char_embedding_table[ch] for ch in token]
 
-    def __init__(self, train_from_scratch=True, char_representation_len=128,
+    def __init__(self, train_from_scratch=True, char_representation_len=64,
                  word_lstm_rep_len=256, train_data_path="data/data.train.txt",
                  dev_data_path="data/data.dev.txt", test_data_paths=["data/data.test.txt"],
                  model_file_name=None, case_sensitive=True):
@@ -93,12 +93,20 @@ class AnalysisScorerModel(object):
             self.TAGS_LOOKUP = self.model.add_lookup_parameters((len(self.tag2id) + 2, char_representation_len))
             self.fwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.bwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
+            self.fwdRNN_surface.set_dropout(0.2)
+            self.bwdRNN_surface.set_dropout(0.2)
             self.fwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.bwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
+            self.fwdRNN_root.set_dropout(0.2)
+            self.bwdRNN_root.set_dropout(0.2)
             self.fwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
             self.bwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-            self.fwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
-            self.bwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
+            self.fwdRNN_tag.set_dropout(0.2)
+            self.bwdRNN_tag.set_dropout(0.2)
+            self.fwdRNN_context = dy.LSTMBuilder(2, word_lstm_rep_len, word_lstm_rep_len, self.model)
+            self.bwdRNN_context = dy.LSTMBuilder(2, word_lstm_rep_len, word_lstm_rep_len, self.model)
+            self.fwdRNN_context.set_dropout(0.2)
+            self.bwdRNN_context.set_dropout(0.2)
             self.train_model(model_name=model_file_name)
         else:
             logger.info("Loading Pre-Trained Model")
@@ -293,17 +301,24 @@ class AnalysisScorerModel(object):
             self.tag2id = pickle.load(f)
 
         self.model = dy.Model()
-        self.trainer = dy.AdamTrainer(self.model)
         self.CHARS_LOOKUP = self.model.add_lookup_parameters((len(self.char2id) + 2, char_representation_len))
         self.TAGS_LOOKUP = self.model.add_lookup_parameters((len(self.tag2id) + 2, char_representation_len))
         self.fwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
+        self.fwdRNN_surface.set_dropout(0.2)
+        self.bwdRNN_surface.set_dropout(0.2)
         self.fwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
+        self.fwdRNN_root.set_dropout(0.2)
+        self.bwdRNN_root.set_dropout(0.2)
         self.fwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-        self.fwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
-        self.bwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
+        self.fwdRNN_tag.set_dropout(0.2)
+        self.bwdRNN_tag.set_dropout(0.2)
+        self.fwdRNN_context = dy.LSTMBuilder(2, word_lstm_rep_len, word_lstm_rep_len, self.model)
+        self.bwdRNN_context = dy.LSTMBuilder(2, word_lstm_rep_len, word_lstm_rep_len, self.model)
+        self.fwdRNN_context.set_dropout(0.2)
+        self.bwdRNN_context.set_dropout(0.2)
         self.model.populate("resources/models/" + model_name + ".model")
 
     @staticmethod
@@ -386,7 +401,7 @@ if __name__ == "__main__":
 
     AnalysisScorerModel(train_data_path="data/data.train.txt", dev_data_path="data/data.dev.txt",
                         test_data_paths=["data/test.merge", "data/data.test.txt", "data/Morph.Dis.Test.Hand.Labeled-20K.txt"],
-                        model_file_name="lookup_disambiguator_wo_suffix_v2", train_from_scratch=True)
+                        model_file_name="lookup_disambiguator_7.10", train_from_scratch=True)
 
     # stemmer = AnalysisScorerModel.create_from_existed_model("lookup_disambiguator_wo_suffix")
     # print(stemmer.predict(["Evren", "defa", "yedi", "."]))

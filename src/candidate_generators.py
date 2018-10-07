@@ -307,5 +307,5 @@ class TurkishStemSuffixCandidateGenerator(object):
 
 if __name__ == "__main__":
     candidate_generator = TurkishStemSuffixCandidateGenerator(case_sensitive=True)
-    print(candidate_generator.get_analysis_candidates("Oteli'inin"))
+    print(candidate_generator.get_analysis_candidates("kitabı"))
 
