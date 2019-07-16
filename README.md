@@ -12,7 +12,7 @@ The neural network architecture is similar to the architecture used in [Shen et.
 
 ### Performance
 
-Although we do not use any complex morphological analyzer as in ost of the studies,
+Although we do not use any complex morphological analyzer as in most of the studies,
 our results are competitive with state-of-the-art morphological disambiguators (96%~97% accuracy).
 
 We will report a comprehensive evaluation results soon.
@@ -25,7 +25,7 @@ Just build a docker image using Dockerfile in the repo:
 docker build --tag turkish-tagger .
 ```
 
-Than start a docker container using the docker image built on previos step:
+Then start a docker container using the docker image built on previos step:
 
 ```commandline
 docker run -p 8081:8081 -d  turkish-tagger
