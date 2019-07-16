@@ -301,7 +301,8 @@ class TurkishStemSuffixCandidateGenerator(object):
                     candidate_analyzes_str.append(to_lower(candidate_root)
                                                       + "+" + "+".join(candidate_tag).replace("+DB", "^DB"))
             candidate_analyzes += cur_candidate_analyzes
-
+        if len(candidate_analyzes) == 0:
+            candidate_analyzes.append((to_lower(surface_word), "", "Unknown"))
         return candidate_analyzes
 
 

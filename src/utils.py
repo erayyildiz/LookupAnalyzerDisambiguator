@@ -2,7 +2,7 @@
 import re
 from collections import namedtuple
 
-WordStruct = namedtuple("WordStruct", ["surface_word", "roots", "suffixes", "tags"])
+WordStruct = namedtuple("WordStruct", ["surface_word", "roots", "suffixes", "tags", "ambiguity_level"])
 ANALYSIS_REGEX = re.compile(r"^([^\+]*)\+(.+)$")
 TAG_SEPARATOR_REGEX = re.compile(r"[\+\^]")
 SPLIT_ROOT_TAGS_REGEX = re.compile(r"^([^\+]+)\+(.+)$")

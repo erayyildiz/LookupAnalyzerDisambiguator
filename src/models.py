@@ -64,7 +64,7 @@ class AnalysisScorerModel(object):
     def _embed(cls, token, char_embedding_table):
         return [char_embedding_table[ch] for ch in token]
 
-    def __init__(self, train_from_scratch=True, char_representation_len=64,
+    def __init__(self, train_from_scratch=True, char_representation_len=128,
                  word_lstm_rep_len=256, train_data_path="data/data.train.txt",
                  dev_data_path="data/data.dev.txt", test_data_paths=["data/data.test.txt"],
                  model_file_name=None, case_sensitive=True):
@@ -199,14 +199,17 @@ class AnalysisScorerModel(object):
             for analysis in candidate_analyzes:
                 roots.append(analysis[0])
                 tags.append(analysis[2])
-            sentence.append(WordStruct(token, roots, [], tags))
+            sentence.append(WordStruct(token, roots, [], tags, 0))
         selected_indices = self.predict_indices(sentence)
         res = []
         for i, j in enumerate(selected_indices):
             if "Prop" in sentence[i].tags[j]:
                 sentence[i].roots[j] = capitalize(sentence[i].roots[j])
-            selected_analysis = sentence[i].roots[j] + "+" + "+".join(sentence[i].tags[j])
-            selected_analysis = selected_analysis.replace("+DB", "^DB")
+            if sentence[i].tags[j] == "Unknown":
+                selected_analysis = sentence[i].roots[j] + "+" + sentence[i].tags[j]
+            else:
+                selected_analysis = sentence[i].roots[j] + "+" + "+".join(sentence[i].tags[j])
+                selected_analysis = selected_analysis.replace("+DB", "^DB")
             res.append(selected_analysis)
         return res
 
@@ -305,20 +308,20 @@ class AnalysisScorerModel(object):
         self.TAGS_LOOKUP = self.model.add_lookup_parameters((len(self.tag2id) + 2, char_representation_len))
         self.fwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_surface = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-        self.fwdRNN_surface.set_dropout(0.2)
-        self.bwdRNN_surface.set_dropout(0.2)
+        # self.fwdRNN_surface.set_dropout(0.2)
+        # self.bwdRNN_surface.set_dropout(0.2)
         self.fwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_root = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-        self.fwdRNN_root.set_dropout(0.2)
-        self.bwdRNN_root.set_dropout(0.2)
+        # self.fwdRNN_root.set_dropout(0.2)
+        # self.bwdRNN_root.set_dropout(0.2)
         self.fwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
         self.bwdRNN_tag = dy.LSTMBuilder(1, char_representation_len, word_lstm_rep_len / 2, self.model)
-        self.fwdRNN_tag.set_dropout(0.2)
-        self.bwdRNN_tag.set_dropout(0.2)
-        self.fwdRNN_context = dy.LSTMBuilder(2, word_lstm_rep_len, word_lstm_rep_len, self.model)
-        self.bwdRNN_context = dy.LSTMBuilder(2, word_lstm_rep_len, word_lstm_rep_len, self.model)
-        self.fwdRNN_context.set_dropout(0.2)
-        self.bwdRNN_context.set_dropout(0.2)
+        # self.fwdRNN_tag.set_dropout(0.2)
+        # self.bwdRNN_tag.set_dropout(0.2)
+        self.fwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
+        self.bwdRNN_context = dy.LSTMBuilder(1, word_lstm_rep_len, word_lstm_rep_len, self.model)
+        # self.fwdRNN_context.set_dropout(0.2)
+        # self.bwdRNN_context.set_dropout(0.2)
         self.model.populate("resources/models/" + model_name + ".model")
 
     @staticmethod
@@ -353,8 +356,12 @@ def error_analysis(file_path, output_path, add_gold_labels=True):
     stemmer = AnalysisScorerModel.create_from_existed_model("lookup_disambiguator_wo_suffix")
     corrects = 0
     total = 0
+    ambiguous_count = 0
+    ambiguous_corrects = 0
     with open("error_analysis/" + output_path, "w", encoding="UTF-8") as f:
-        for sentence in test_data:
+        for sentence_index, sentence in enumerate(test_data):
+            if sentence_index % 100 == 0:
+                print("{} sentences processed so far.".format(sentence_index))
             scores = stemmer.propogate(sentence)
             for word_index, (score, word) in enumerate(zip(scores, sentence)):
                 analysis_scores = {}
@@ -373,8 +380,12 @@ def error_analysis(file_path, output_path, add_gold_labels=True):
                         max_prob = analysis_prob
                         max_analysis = analysis_str
                     analysis_scores[analysis_str] = analysis_prob
+                if word.ambiguity_level > 0:
+                    ambiguous_count += 1
                 if max_analysis == correct_analysis:
                     corrects += 1
+                    if word.ambiguity_level > 0:
+                        ambiguous_corrects += 1
                 else:
                     f.write("Surface: {}\n".format(word.surface_word))
                     f.write("Correct analysis: {}\tSelected analysis: {}\n"
@@ -393,22 +404,21 @@ def error_analysis(file_path, output_path, add_gold_labels=True):
                     f.write("\n\n")
                 total += 1
 
-
     print("Corrects: {}\tTotal: {}\t Accuracy: {}".format(corrects, total, corrects * 1.0 / total))
+    print("Ambiguous Corrects: {}\tTotal Ambiguous: {}\t Ambiguous Accuracy: {}".format(corrects, total, corrects * 1.0 / total))
 
 
 if __name__ == "__main__":
 
-    AnalysisScorerModel(train_data_path="data/data.train.txt", dev_data_path="data/data.dev.txt",
-                        test_data_paths=["data/test.merge", "data/data.test.txt", "data/Morph.Dis.Test.Hand.Labeled-20K.txt"],
-                        model_file_name="lookup_disambiguator_7.10", train_from_scratch=True)
-
+    # AnalysisScorerModel(train_data_path="data/data.train.txt", dev_data_path="data/data.dev.txt",
+    #                     test_data_paths=["data/test.merge", "data/data.test.txt", "data/Morph.Dis.Test.Hand.Labeled-20K.txt"],
+    #                     model_file_name="lookup_disambiguator_7.10", train_from_scratch=True)
     # stemmer = AnalysisScorerModel.create_from_existed_model("lookup_disambiguator_wo_suffix")
-    # print(stemmer.predict(["Evren", "defa", "yedi", "."]))
-    # error_analysis("data/data.dev.txt", "data.dev.error_analysis.txt")
-    # error_analysis("data/test.merge", "test.merge.error_analysis.txt")
-    # error_analysis("data/data.test.txt", "data.test.error_analysis.txt")
-    # error_analysis("data/Morph.Dis.Test.Hand.Labeled-20K.txt", "Morph.Dis.Test.Hand.Labeled-20K.error_analysis.txt")
+    # print(stemmer.predict(["adsadsasf"]))
+    error_analysis("data/data.dev.txt", "data.dev.error_analysis.txt")
+    error_analysis("data/test.merge", "test.merge.error_analysis.txt")
+    error_analysis("data/data.test.txt", "data.test.error_analysis.txt")
+    error_analysis("data/Morph.Dis.Test.Hand.Labeled-20K.txt", "Morph.Dis.Test.Hand.Labeled-20K.error_analysis.txt")
 
 
 

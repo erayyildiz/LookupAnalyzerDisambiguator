@@ -32,6 +32,7 @@ def data_generator(file_path, add_gold_labels=True, case_sensitive=True, max_lin
                 roots = []
                 suffixes = []
                 tags = []
+                ambiguity_level = 0
                 if add_gold_labels:
                     analyzes = parses[1:]
                     gold_root = get_root_from_analysis(analyzes[0])
@@ -43,7 +44,7 @@ def data_generator(file_path, add_gold_labels=True, case_sensitive=True, max_lin
                     suffixes.append(gold_suffix)
                     gold_tag = standardize_tags(get_tags_from_analysis(analyzes[0]))
                     tags.append(gold_tag)
-
+                    ambiguity_level = len(analyzes)
                     for candidate_root, candidate_suffix, candidate_tag in candidates:
                         if to_lower(candidate_root) != to_lower(gold_root) or "".join(candidate_tag) != "".join(gold_tag):
                             roots.append(to_lower(candidate_root))
@@ -74,7 +75,7 @@ def data_generator(file_path, add_gold_labels=True, case_sensitive=True, max_lin
                     surface = to_lower(surface)
                     roots = [to_lower(root) for root in roots]
                     suffixes = [to_lower(suffix) for suffix in suffixes]
-                current_word = WordStruct(surface, roots, suffixes, tags)
+                current_word = WordStruct(surface, roots, suffixes, tags, ambiguity_level)
                 sentence.append(current_word)
 
 
@@ -103,8 +104,10 @@ def load_data(file_path, max_sentence=0, add_gold_labels=True, case_sensitive=Fa
                 roots = []
                 suffixes = []
                 tags = []
+                ambiguity_level = 0
                 if add_gold_labels:
                     analyzes = parses[1:]
+                    ambiguity_level = len(analyzes)
                     gold_root = get_root_from_analysis(analyzes[0])
                     gold_root = to_lower(gold_root)
                     roots.append(gold_root)
@@ -145,7 +148,7 @@ def load_data(file_path, max_sentence=0, add_gold_labels=True, case_sensitive=Fa
                     surface = to_lower(surface)
                     roots = [to_lower(root) for root in roots]
                     suffixes = [to_lower(suffix) for suffix in suffixes]
-                current_word = WordStruct(surface, roots, suffixes, tags)
+                current_word = WordStruct(surface, roots, suffixes, tags,ambiguity_level)
                 sentence.append(current_word)
     return sentences
 
